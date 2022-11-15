@@ -6,3 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1"
+atty = "0.2"
+rathole = "0.4.5"
+tokio = { version = "1", features = ["full"] }
+tracing-subscriber = "0.2"
