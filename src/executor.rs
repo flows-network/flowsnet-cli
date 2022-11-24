@@ -1,7 +1,7 @@
 use crate::cli;
 
 use axum::{
-    extract::Form, http::StatusCode, response::IntoResponse, routing::post, Router, Server,
+    extract::Multipart, http::StatusCode, response::IntoResponse, routing::post, Router, Server,
 };
 use serde::Deserialize;
 use std::net::SocketAddr;
@@ -13,7 +13,7 @@ use wasmedge_sdk_bindgen::*;
 pub async fn start(args: cli::Cli, mut shutdown_rx: broadcast::Receiver<bool>) {
     let app = Router::new().route(
         "/",
-        post(|Form(wasm_form): Form<WasmForm>| wasm_handler(args.wasm, wasm_form)),
+        post(|multipart_wasm: Multipart| wasm_handler(args.wasm, multipart_wasm)),
     );
     let addr = SocketAddr::from(([0, 0, 0, 0], args.port));
 
@@ -28,7 +28,6 @@ pub async fn start(args: cli::Cli, mut shutdown_rx: broadcast::Receiver<bool>) {
 
 #[derive(Deserialize)]
 struct WasmForm {
-    _flow: String,
     input: String,
     files: Option<String>,
     return_index: Option<usize>,
@@ -42,7 +41,37 @@ struct UploadFile {
     _content_type: String,
 }
 
-async fn wasm_handler(wasm_path: String, wasm_form: WasmForm) -> impl IntoResponse {
+async fn parse_form_data(mut multipart_wasm: Multipart) -> anyhow::Result<WasmForm> {
+    let mut form = WasmForm {
+        input: String::from(""),
+        files: None,
+        return_index: None,
+    };
+    while let Some(field) = multipart_wasm.next_field().await? {
+        let name = field
+            .name()
+            .ok_or(anyhow::anyhow!("Can not get field name"))?
+            .to_string();
+        let data = field.text().await?;
+        match name.as_ref() {
+            "input" => form.input = data,
+            "files" => form.files = Some(data),
+            "return_index" => form.return_index = Some(data.parse()?),
+            _ => {}
+        };
+    }
+
+    Ok(form)
+}
+
+async fn wasm_handler(wasm_path: String, multipart_wasm: Multipart) -> impl IntoResponse {
+    let wasm_form = match parse_form_data(multipart_wasm).await {
+        Ok(x) => x,
+        Err(e) => {
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string()));
+        }
+    };
+
     let files = wasm_form
         .files
         .and_then(|files| serde_json::from_str::<Vec<UploadFile>>(&files).ok());

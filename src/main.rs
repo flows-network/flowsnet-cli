@@ -124,7 +124,6 @@ async fn link(flow: &str) -> anyhow::Result<LinkResult> {
         .post(format!("{}/link/{}", SERVER_HOST, flow))
         .send()
         .await;
-    println!("{:?}", response);
     match response {
         Ok(r) => r.json::<LinkResult>().await.map_err(|e| e.into()),
         Err(e) => Err(e.into()),
