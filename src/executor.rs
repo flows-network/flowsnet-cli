@@ -6,9 +6,11 @@ use axum::{
 use serde::Deserialize;
 use std::net::SocketAddr;
 use tokio::sync::broadcast;
-use wasmedge_sdk::config::*;
-use wasmedge_sdk::*;
-use wasmedge_sdk_bindgen::*;
+use wasmedge_sdk::{
+    config::{CommonConfigOptions, ConfigBuilder, HostRegistrationConfigOptions},
+    dock::{Param, VmDock},
+    Module, Vm,
+};
 
 pub async fn start(args: cli::Cli, mut shutdown_rx: broadcast::Receiver<bool>) {
     let app = Router::new().route(
@@ -108,31 +110,19 @@ fn execute_wasm(
     _files: Option<Vec<UploadFile>>,
     return_index: Option<usize>,
 ) -> anyhow::Result<(String, String, Option<Vec<u8>>)> {
-    let common_options = CommonConfigOptions::default()
-        .bulk_memory_operations(true)
-        .multi_value(true)
-        .mutable_globals(true)
-        .non_trap_conversions(true)
-        .reference_types(true)
-        .sign_extension_operators(true)
-        .simd(true);
+    let module = Module::from_file(None, wasm_path)?;
 
-    let host_options = HostRegistrationConfigOptions::default()
-        .wasi(true)
-        .wasmedge_process(false);
+    let config = ConfigBuilder::new(CommonConfigOptions::default())
+        .with_host_registration_config(HostRegistrationConfigOptions::default().wasi(true))
+        .build()?;
+    let mut vm = Vm::new(Some(config))?.register_module(None, module)?;
+    let mut wasi_module = vm.wasi_module()?;
+    wasi_module.initialize(None, None, None);
 
-    let config = ConfigBuilder::new(common_options)
-        .with_host_registration_config(host_options)
-        .build()
-        .unwrap();
-
-    let vm = Vm::new(Some(config)).unwrap();
-    let module = Module::from_file(None, wasm_path).unwrap();
-    let vm = vm.register_module(None, module).unwrap();
-    let mut bg = Bindgen::new(vm);
+    let vm = VmDock::new(vm);
 
     let params = vec![Param::String(&param)];
-    match bg.run_wasm("run", params) {
+    match vm.run_func("run", params) {
         Ok(rv) => {
             let mut rv = rv.unwrap();
             match return_index {
