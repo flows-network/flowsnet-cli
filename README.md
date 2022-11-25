@@ -4,8 +4,10 @@ Command line tool for interacting with flows.network platform
 ## Prerequisite
 You need to [install WasmEdge runtime](https://wasmedge.org/book/en/quick_start/install.html) to run the wasm in your local environment.
 ```
-curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- -e all -v 0.11.2
+curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- -v 0.11.2
 ```
+### Linux
+You may need to install clang if your operating system is Linux.
 
 ## How to install
 flowsnet is published as a rust binary crate, so you can install it using cargo:
