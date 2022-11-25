@@ -13,7 +13,7 @@ use tokio::{signal, sync::broadcast};
 use tracing_subscriber::EnvFilter;
 
 const TIMEOUT: u64 = 30;
-const SERVER_HOST: &str = "http://127.0.0.1:9090";
+const SERVER_HOST: &str = "https://dev.flows.network:9090";
 
 lazy_static! {
     static ref HEART_INTERVAL: Duration = Duration::from_secs(30);
