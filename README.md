@@ -7,7 +7,11 @@ You need to [install WasmEdge runtime](https://wasmedge.org/book/en/quick_start/
 curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- -v 0.11.2
 ```
 ### Linux
-You may need to install clang if your operating system is Linux.
+You may need to install clang, pkg-config and openssl if your operating system is Linux.
+Take Ubuntu as example:
+```
+sudo apt install clang pkg-config openssl libssl-dev
+```
 
 ## How to install
 flowsnet is published as a rust binary crate, so you can install it using cargo:
