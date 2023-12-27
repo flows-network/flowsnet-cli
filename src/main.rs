@@ -13,7 +13,7 @@ use tokio::{signal, sync::broadcast};
 use tracing_subscriber::EnvFilter;
 
 const TIMEOUT: u64 = 30;
-const SERVER_HOST: &str = "https://dev.flows.network";
+const SERVER_HOST: &str = "http://127.0.0.1:9090";
 
 lazy_static! {
     static ref HEART_INTERVAL: Duration = Duration::from_secs(30);
@@ -35,9 +35,26 @@ async fn main() {
     });
 
     tokio::spawn(async move {
-        if let Err(e) = signal::ctrl_c().await {
-            // Something really weird happened. So just panic
-            panic!("Failed to listen for the ctrl-c signal: {:?}", e);
+        let ctrl_c = async {
+            signal::ctrl_c()
+                .await
+                .expect("failed to install Ctrl+C handler");
+        };
+
+        #[cfg(unix)]
+        let terminate = async {
+            signal::unix::signal(signal::unix::SignalKind::terminate())
+                .expect("failed to install signal handler")
+                .recv()
+                .await;
+        };
+
+        #[cfg(not(unix))]
+        let terminate = std::future::pending::<()>();
+
+        tokio::select! {
+            _ = ctrl_c => {},
+            _ = terminate => {},
         }
 
         if let Err(e) = shutdown_tx.send(true) {
