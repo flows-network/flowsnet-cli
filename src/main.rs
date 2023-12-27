@@ -4,6 +4,7 @@ mod executor;
 use clap::Parser;
 use cli::Cli;
 use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -13,7 +14,8 @@ use tokio::{signal, sync::broadcast};
 use tracing_subscriber::EnvFilter;
 
 const TIMEOUT: u64 = 30;
-const SERVER_HOST: &str = "http://127.0.0.1:9090";
+const SERVER_HOST: &str = "dev.flows.network";
+const SERVER_API_URL: Lazy<String> = Lazy::new(|| format!("https://{}", SERVER_HOST));
 
 lazy_static! {
     static ref HEART_INTERVAL: Duration = Duration::from_secs(30);
@@ -86,7 +88,7 @@ async fn run_proxy(args: &Cli, shutdown_rx: broadcast::Receiver<bool>) {
 
     let config = Config {
         client: ConfigClient {
-            remote_addr: link_result.remote_addr,
+            remote_addr: format!("{}:{}", SERVER_HOST, link_result.remote_port),
             services: HashMap::from([(
                 args.flow.clone(),
                 Service {
@@ -133,12 +135,12 @@ struct Service {
 #[derive(Deserialize)]
 struct LinkResult {
     token: String,
-    remote_addr: String,
+    remote_port: u16,
 }
 
 async fn link(flow: &str) -> anyhow::Result<LinkResult> {
     let response = HTTP_CLIENT
-        .post(format!("{}/link/{}", SERVER_HOST, flow))
+        .post(format!("{}/link/{}", SERVER_API_URL.as_str(), flow))
         .send()
         .await;
     match response {
@@ -152,7 +154,7 @@ async fn heart(flow: &str, mut shutdown_rx: broadcast::Receiver<bool>) {
         tokio::select! {
             _ = tokio::time::sleep(*HEART_INTERVAL) => {
                 _ = HTTP_CLIENT
-                    .post(format!("{}/heart/{}", SERVER_HOST, flow))
+                    .post(format!("{}/heart/{}", SERVER_API_URL.as_str(), flow))
                     .send()
                     .await;
             }
