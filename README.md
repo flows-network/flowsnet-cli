@@ -29,6 +29,11 @@ and two optionals:
   -e, --env-file <ENV_FILE>  Name of the env file which is to be written [default: .flowsnet.env]
 ```
 
+Copy the example env file and write your own in it. Beware to rename the file if you want to customize in the argument above.
+```bash
+cp .flowsnet.env.example .flowsnet.env
+```
+
 You can find the flow identity in your flow detail on the flows.network platform.<br/>
 The wasm path is the path of the wasm file, which is built from your rust function code.<br/>
 flowsnet-cli will start a server to receive requests from the flows.network platform, and the port is for the service to listen.
