@@ -24,11 +24,15 @@ use wasmedge_sdk::{
     plugin::PluginManager,
     r#async::{
         vm::{AsyncInst, Vm},
-        wasi::async_wasi::WasiCtx,
+        wasi::async_wasi::{
+            snapshots::env::{vfs::virtual_sys::StdioSys, VFS},
+            WasiCtx,
+        },
     },
     ExternalInstanceType, ImportObject, Module, Store, WasmEdgeResult,
 };
 
+use crate::executor::flow_file_sys;
 use crate::executor::host_func;
 use crate::executor::tls_wrap_plugin;
 use crate::Cli;
@@ -44,13 +48,26 @@ async fn run_wasm(
     let wasm_env = wp.wasm_env.take().unwrap_or_default();
     let preopen = wp.preopen.take().unwrap_or_default();
 
-    let mut wasi_ctx = WasiCtx::new();
+    let mut vfs = {
+        let stdio_sys = StdioSys::new(std::io::empty(), std::io::stdout(), std::io::stderr());
+        VFS::new_with_stdio(stdio_sys)
+    };
+
+    for (guest_path, host_path) in preopen {
+        let file_sys = flow_file_sys::DiskFileSys::new(host_path)?;
+
+        vfs.mount_file_sys(
+            guest_path
+                .to_str()
+                .ok_or(std::io::Error::from(std::io::ErrorKind::InvalidInput))?,
+            Box::new(file_sys),
+        )
+    }
+
+    let mut wasi_ctx = WasiCtx::create_with_vfs(vfs);
 
     for env in wasm_env {
         wasi_ctx.push_env(env);
-    }
-    for (guest_path, host_path) in preopen {
-        wasi_ctx.push_preopen(host_path, guest_path)
     }
 
     let mut async_wasi =
